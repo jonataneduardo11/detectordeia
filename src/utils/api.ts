@@ -4,9 +4,9 @@
 const API_CONFIG = {
   BASE_URL: 'http://localhost:8000', // Cambiar por la URL real de tu API
   ENDPOINTS: {
-    HUGGINGFACE: '/api/huggingface',
-    XCEPTION: '/api/xception/detect',
-    MODELS: '/api/xception/weights'
+    HUGGINGFACE: '/huggingface',
+    XCEPTION_DETECT: '/xception/detect',
+    XCEPTION_WEIGHTS: '/xception/weights'
   }
 };
 
@@ -25,54 +25,17 @@ export interface AvailableModel {
 }
 
 // 🔄 FUNCIÓN 1: Análisis con Huggingface
-export const analyzeWithHuggingface = async (file: File): Promise<APIAnalysisResult> => {
-  try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('recortar_cara', 'false'); // Valor por defecto
-    formData.append('device', getDeviceType());
-
-    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HUGGINGFACE}`, {
-      method: 'POST',
-      body: formData, // Usar FormData, no JSON
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
-    }
-
-    const result = await response.json();
-    
-    // Procesar respuesta de tu API
-    return {
-      fake: result.result.fake.toString(),
-      real: result.result.real.toString(),
-      prediccion: result.result.prediction || 'unknown'
-    };
-
-  } catch (error) {
-    console.error('Error con Huggingface API:', error);
-    throw new Error('Error al analizar con Huggingface. Verifica que la API esté funcionando.');
-  }
-};
-
-// 🔄 FUNCIÓN 2: Análisis con Xception
-export const analyzeWithXception = async (
+export const analyzeWithHuggingface = async (
   file: File, 
-  modelName?: string
+  recortarCara: boolean = false
 ): Promise<APIAnalysisResult> => {
   try {
     const formData = new FormData();
     formData.append('file', file);
-    
-    if (modelName) {
-      formData.append('model_name', modelName);
-    }
-    
-    formData.append('recortar_cara', 'false');
-    formData.append('device', getDeviceType());
+    formData.append('recortar_cara', recortarCara.toString());
+    formData.append('device', 'cpu'); // o 'cuda' si tienes GPU
 
-    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HUGGINGFACE}`, {
       method: 'POST',
       body: formData,
     });
@@ -83,11 +46,48 @@ export const analyzeWithXception = async (
 
     const result = await response.json();
     
-    // Procesar respuesta de tu API
+    // Procesar respuesta exacta de tu API
     return {
       fake: result.result.fake.toString(),
       real: result.result.real.toString(),
-      prediccion: result.result.prediction || 'unknown'
+      prediccion: result.result.prediction
+    };
+
+  } catch (error) {
+    console.error('Error con Huggingface API:', error);
+    throw new Error('Error al analizar con Huggingface. Verifica que la API esté funcionando.');
+  }
+};
+
+// 🔄 FUNCIÓN 2: Análisis con Xception
+export const analyzeWithXception = async (
+  file: File,
+  modelName: string,
+  recortarCara: boolean = false
+): Promise<APIAnalysisResult> => {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model_name', modelName);
+    formData.append('recortar_cara', recortarCara.toString());
+    formData.append('device', 'cpu'); // o 'cuda' si tienes GPU
+
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_DETECT}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error HTTP: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    // Procesar respuesta exacta de tu API
+    return {
+      fake: result.result.fake.toString(),
+      real: result.result.real.toString(),
+      prediccion: result.result.prediction
     };
 
   } catch (error) {
@@ -99,7 +99,7 @@ export const analyzeWithXception = async (
 // 🔄 FUNCIÓN 3: Obtener modelos disponibles
 export const getAvailableModels = async (): Promise<AvailableModel[]> => {
   try {
-    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.MODELS}`, {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_WEIGHTS}`, {
       method: 'GET',
     });
 
@@ -120,26 +120,37 @@ export const getAvailableModels = async (): Promise<AvailableModel[]> => {
 export const analyzeImage = async (
   file: File,
   method: 'huggingface' | 'xception' = 'huggingface',
-  modelName?: string
+  options: {
+    modelName?: string;
+    recortarCara?: boolean;
+  } = {}
 ): Promise<APIAnalysisResult> => {
   
-  // Validar tamaño de archivo (opcional)
-  const maxSize = 10 * 1024 * 1024; // 10MB
+  // Validar tamaño de archivo (10MB máximo)
+  const maxSize = 10 * 1024 * 1024;
   if (file.size > maxSize) {
     throw new Error('El archivo es demasiado grande. Máximo 10MB.');
   }
 
   // Validar tipo de archivo
-  if (!file.type.startsWith('image/')) {
-    throw new Error('El archivo debe ser una imagen.');
+  const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Formato no válido. Solo se permiten PNG, JPG, JPEG.');
   }
+
+  const { modelName, recortarCara = false } = options;
 
   try {
     switch (method) {
       case 'huggingface':
-        return await analyzeWithHuggingface(file);
+        return await analyzeWithHuggingface(file, recortarCara);
+      
       case 'xception':
-        return await analyzeWithXception(file, modelName);
+        if (!modelName) {
+          throw new Error('Se requiere seleccionar un modelo para Xception.');
+        }
+        return await analyzeWithXception(file, modelName, recortarCara);
+      
       default:
         throw new Error(`Método "${method}" no soportado`);
     }
@@ -149,7 +160,7 @@ export const analyzeImage = async (
   }
 };
 
-// 🛠️ Función helper para detectar tipo de dispositivo
+// 🛠️ Función helper para detectar dispositivo
 export const getDeviceType = (): string => {
   const userAgent = navigator.userAgent;
   
@@ -158,7 +169,7 @@ export const getDeviceType = (): string => {
   } else if (/iPad|Tablet/.test(userAgent)) {
     return 'tablet';
   } else {
-    return 'cpu'; // Por defecto para desktop
+    return 'desktop';
   }
 };
 
@@ -171,23 +182,15 @@ export const getAPIStatus = () => {
   };
 };
 
-// 🧪 MODO DE PRUEBA (opcional para desarrollo)
-const DEMO_MODE = false; // Cambiar a true para modo demo
-
-export const analyzeImageDemo = async (file: File): Promise<APIAnalysisResult> => {
-  if (!DEMO_MODE) {
-    return analyzeImage(file);
+// 🧪 Función para probar conectividad
+export const testAPIConnection = async (): Promise<boolean> => {
+  try {
+    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_WEIGHTS}`, {
+      method: 'GET',
+    });
+    return response.ok;
+  } catch (error) {
+    console.error('Error de conectividad:', error);
+    return false;
   }
-
-  // Simular respuesta mientras pruebas
-  await new Promise(resolve => setTimeout(resolve, 2000));
-  
-  const fakeScore = Math.random() * 0.6 + 0.2; // 0.2 - 0.8
-  const realScore = 1 - fakeScore;
-  
-  return {
-    fake: fakeScore.toFixed(6),
-    real: realScore.toFixed(6),
-    prediccion: fakeScore > realScore ? 'fake' : 'real'
-  };
 };

@@ -20,12 +20,16 @@ export default function ImageUploader() {
   const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [loadingModels, setLoadingModels] = useState(false);
+  const [recortarCara, setRecortarCara] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Cargar modelos disponibles cuando se selecciona Xception
   useEffect(() => {
     if (method === 'xception') {
       loadAvailableModels();
+    } else {
+      setSelectedModel('');
+      setAvailableModels([]);
     }
   }, [method]);
 
@@ -35,10 +39,11 @@ export default function ImageUploader() {
       const models = await getAvailableModels();
       setAvailableModels(models);
       if (models.length > 0) {
-        setSelectedModel(models[0].filename); // Seleccionar el primero por defecto
+        setSelectedModel(models[0].filename);
       }
     } catch (error) {
       console.error('Error cargando modelos:', error);
+      setError('No se pudieron cargar los modelos disponibles');
     } finally {
       setLoadingModels(false);
     }
@@ -65,16 +70,27 @@ export default function ImageUploader() {
   };
 
   const handleFileSelect = (file: File) => {
-    if (file && file.type.startsWith('image/')) {
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onload = () => {
-        setImagePreview(reader.result as string);
-        setState('uploaded');
-        setError(null);
-      };
-      reader.readAsDataURL(file);
+    // Validar tipo de archivo
+    const allowedTypes = ['image/png', 'image/jpg', 'image/jpeg'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Formato no válido. Solo se permiten PNG, JPG, JPEG.');
+      return;
     }
+
+    // Validar tamaño (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      setError('El archivo es demasiado grande. Máximo 10MB.');
+      return;
+    }
+
+    setSelectedImage(file);
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImagePreview(reader.result as string);
+      setState('uploaded');
+      setError(null);
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -90,11 +106,11 @@ export default function ImageUploader() {
     setError(null);
     
     try {
-      const apiResult = await analyzeImage(
-        selectedImage, 
-        method,
-        method === 'xception' ? selectedModel : undefined
-      );
+      const apiResult = await analyzeImage(selectedImage, method, {
+        modelName: method === 'xception' ? selectedModel : undefined,
+        recortarCara: recortarCara
+      });
+      
       setResult(apiResult);
       setState('complete');
     } catch (error) {
@@ -119,27 +135,36 @@ export default function ImageUploader() {
     switch (methodType) {
       case 'huggingface':
         return {
-          name: 'Hugging Face',
+          name: 'Cara de abrazo',
           description: 'Modelo preentrenado de Hugging Face',
-          icon: '🤗'
+          icon: '🤗',
+          color: 'bg-orange-500'
         };
       case 'xception':
         return {
-          name: 'Xception',
+          name: 'Excepción',
           description: 'Modelo Xception personalizado',
-          icon: '🧠'
+          icon: '🧠',
+          color: 'bg-purple-500'
         };
     }
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
   };
 
   if (state === 'processing') {
     return (
       <div className="space-y-4">
         <div className="text-center">
-          <Badge variant="default" className="mb-4">
+          <Badge 
+            variant="default" 
+            className={`mb-4 text-white ${getMethodInfo(method).color}`}
+          >
             {getMethodInfo(method).icon} Analizando con {getMethodInfo(method).name}
             {method === 'xception' && selectedModel && (
-              <span className="ml-1">({selectedModel})</span>
+              <span className="ml-1 text-xs">({selectedModel})</span>
             )}
           </Badge>
         </div>
@@ -181,28 +206,42 @@ export default function ImageUploader() {
               Modelo Xception:
             </label>
             {loadingModels ? (
-              <div className="text-center text-sm text-muted-foreground">
-                Cargando modelos...
+              <div className="text-center text-sm text-muted-foreground py-2">
+                Cargando modelos disponibles...
               </div>
             ) : availableModels.length > 0 ? (
               <select 
                 value={selectedModel} 
                 onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full p-2 text-xs border rounded"
+                className="w-full p-2 text-xs border border-border rounded-md bg-background"
               >
                 {availableModels.map((model) => (
                   <option key={model.filename} value={model.filename}>
-                    {model.filename} ({(model.size_bytes / (1024*1024)).toFixed(1)}MB)
+                    {model.filename} ({formatFileSize(model.size_bytes)})
                   </option>
                 ))}
               </select>
             ) : (
-              <div className="text-center text-sm text-muted-foreground">
-                No se pudieron cargar los modelos
+              <div className="text-center text-sm text-muted-foreground py-2 border border-dashed border-border rounded-md">
+                {error && error.includes('modelos') ? error : 'No se pudieron cargar los modelos'}
               </div>
             )}
           </div>
         )}
+
+        {/* Opción de recortar cara */}
+        <div className="mt-4 flex items-center justify-center space-x-2">
+          <input 
+            type="checkbox" 
+            id="recortar-cara"
+            checked={recortarCara}
+            onChange={(e) => setRecortarCara(e.target.checked)}
+            className="rounded"
+          />
+          <label htmlFor="recortar-cara" className="text-xs text-muted-foreground cursor-pointer">
+            Recortar cara automáticamente
+          </label>
+        </div>
         
         <p className="text-xs text-center text-muted-foreground mt-2">
           {getMethodInfo(method).description}
@@ -213,11 +252,11 @@ export default function ImageUploader() {
       {state === 'error' && error && (
         <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
           <div className="flex items-center space-x-2">
-            <svg className="w-5 h-5 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 text-destructive flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
             </svg>
             <div>
-              <h4 className="font-semibold text-destructive">Error con {getMethodInfo(method).name}</h4>
+              <h4 className="font-semibold text-destructive">Error</h4>
               <p className="text-sm text-destructive/80">{error}</p>
             </div>
           </div>
@@ -225,9 +264,12 @@ export default function ImageUploader() {
             variant="outline" 
             size="sm" 
             className="mt-3" 
-            onClick={() => setState('uploaded')}
+            onClick={() => {
+              setError(null);
+              if (state !== 'uploaded') setState('idle');
+            }}
           >
-            Intentar de nuevo
+            Cerrar
           </Button>
         </div>
       )}
@@ -259,7 +301,7 @@ export default function ImageUploader() {
                 O haz clic para seleccionar una imagen
               </p>
               <p className="text-xs text-muted-foreground">
-                Formatos soportados: JPG, PNG, WebP (máx. 10MB)
+                Formatos: PNG, JPG, JPEG (máx. 10MB)
               </p>
             </div>
             
@@ -274,7 +316,7 @@ export default function ImageUploader() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*"
+            accept=".png,.jpg,.jpeg"
             onChange={handleFileInput}
             className="hidden"
           />
@@ -293,7 +335,7 @@ export default function ImageUploader() {
               />
             </div>
             <p className="text-sm text-muted-foreground mt-2">
-              {selectedImage?.name}
+              {selectedImage?.name} ({selectedImage && formatFileSize(selectedImage.size)})
             </p>
           </div>
 
@@ -302,7 +344,10 @@ export default function ImageUploader() {
               onClick={analyzeImageAPI} 
               size="lg" 
               className="px-8"
-              disabled={state === 'processing' || (method === 'xception' && !selectedModel)}
+              disabled={
+                state === 'processing' || 
+                (method === 'xception' && (!selectedModel || loadingModels))
+              }
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
