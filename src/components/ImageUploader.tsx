@@ -4,7 +4,7 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import ProcessingSpinner from './ProcessingSpinner';
 import ResultsDisplay from './ResultsDisplay';
-import { analyzeImage, getAvailableModels, APIAnalysisResult, AvailableModel } from '../utils/api';
+import { analyzeImage, getAvailableModels, testAPIConnection, APIAnalysisResult, AvailableModel } from '../utils/api';
 
 type UploadState = 'idle' | 'uploaded' | 'processing' | 'complete' | 'error';
 type AnalysisMethod = 'huggingface' | 'xception';
@@ -21,7 +21,13 @@ export default function ImageUploader() {
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [loadingModels, setLoadingModels] = useState(false);
   const [recortarCara, setRecortarCara] = useState(false);
+  const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Verificar conectividad con la API al montar el componente
+  useEffect(() => {
+    checkAPIConnection();
+  }, []);
 
   // Cargar modelos disponibles cuando se selecciona Xception
   useEffect(() => {
@@ -33,17 +39,34 @@ export default function ImageUploader() {
     }
   }, [method]);
 
+  const checkAPIConnection = async () => {
+    try {
+      const connected = await testAPIConnection();
+      setApiConnected(connected);
+      if (!connected) {
+        setError('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+      }
+    } catch (error) {
+      setApiConnected(false);
+      setError('Error de conectividad con la API');
+    }
+  };
+
   const loadAvailableModels = async () => {
     setLoadingModels(true);
+    setError(null);
     try {
       const models = await getAvailableModels();
       setAvailableModels(models);
       if (models.length > 0) {
         setSelectedModel(models[0].filename);
+      } else {
+        setError('No hay modelos Xception disponibles en el servidor');
       }
     } catch (error) {
       console.error('Error cargando modelos:', error);
-      setError('No se pudieron cargar los modelos disponibles');
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      setError(`No se pudieron cargar los modelos: ${errorMessage}`);
     } finally {
       setLoadingModels(false);
     }
@@ -106,16 +129,19 @@ export default function ImageUploader() {
     setError(null);
     
     try {
+      console.log('🎯 Iniciando análisis de imagen...');
       const apiResult = await analyzeImage(selectedImage, method, {
         modelName: method === 'xception' ? selectedModel : undefined,
         recortarCara: recortarCara
       });
       
+      console.log('✅ Análisis completado:', apiResult);
       setResult(apiResult);
       setState('complete');
     } catch (error) {
-      console.error('Error en análisis:', error);
-      setError(error instanceof Error ? error.message : 'Error desconocido');
+      console.error('❌ Error en análisis:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al analizar la imagen';
+      setError(errorMessage);
       setState('error');
     }
   };
@@ -135,15 +161,15 @@ export default function ImageUploader() {
     switch (methodType) {
       case 'huggingface':
         return {
-          name: 'Cara de abrazo',
-          description: 'Modelo preentrenado de Hugging Face',
+          name: 'HuggingFace',
+          description: 'Modelo preentrenado de Hugging Face para detección de deepfakes',
           icon: '🤗',
           color: 'bg-orange-500'
         };
       case 'xception':
         return {
-          name: 'Excepción',
-          description: 'Modelo Xception personalizado',
+          name: 'Xception',
+          description: 'Modelos Xception personalizados para detección de deepfakes',
           icon: '🧠',
           color: 'bg-purple-500'
         };
@@ -151,9 +177,10 @@ export default function ImageUploader() {
   };
 
   const formatFileSize = (bytes: number): string => {
-    return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  // Estado de procesamiento
   if (state === 'processing') {
     return (
       <div className="space-y-4">
@@ -173,12 +200,50 @@ export default function ImageUploader() {
     );
   }
 
+  // Estado de resultados completos
   if (state === 'complete' && result) {
     return <ResultsDisplay result={result} onReset={resetUploader} />;
   }
 
   return (
     <Card className="p-8">
+      {/* Estado de conectividad de la API */}
+      {apiConnected === false && (
+        <div className="mb-6 p-4 bg-destructive/10 border border-destructive/20 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <svg className="w-5 h-5 text-destructive flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+              <div>
+                <h4 className="font-semibold text-destructive">API no disponible</h4>
+                <p className="text-sm text-destructive/80">
+                  Verifica que tu API esté ejecutándose en <code>http://localhost:8000</code>
+                </p>
+              </div>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={checkAPIConnection}
+            >
+              Verificar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {apiConnected === true && (
+        <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <p className="text-sm text-green-700">API conectada correctamente</p>
+          </div>
+        </div>
+      )}
+
       {/* Selector de método de análisis */}
       <div className="mb-6">
         <h4 className="text-sm font-medium mb-3 text-center">Método de análisis:</h4>
@@ -192,6 +257,7 @@ export default function ImageUploader() {
                 size="sm"
                 onClick={() => setMethod(methodType)}
                 className="text-xs"
+                disabled={apiConnected === false}
               >
                 {info.icon} {info.name}
               </Button>
@@ -207,13 +273,17 @@ export default function ImageUploader() {
             </label>
             {loadingModels ? (
               <div className="text-center text-sm text-muted-foreground py-2">
-                Cargando modelos disponibles...
+                <div className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  Cargando modelos disponibles...
+                </div>
               </div>
             ) : availableModels.length > 0 ? (
               <select 
                 value={selectedModel} 
                 onChange={(e) => setSelectedModel(e.target.value)}
                 className="w-full p-2 text-xs border border-border rounded-md bg-background"
+                disabled={apiConnected === false}
               >
                 {availableModels.map((model) => (
                   <option key={model.filename} value={model.filename}>
@@ -222,8 +292,8 @@ export default function ImageUploader() {
                 ))}
               </select>
             ) : (
-              <div className="text-center text-sm text-muted-foreground py-2 border border-dashed border-border rounded-md">
-                {error && error.includes('modelos') ? error : 'No se pudieron cargar los modelos'}
+              <div className="text-center text-sm text-destructive py-2 border border-dashed border-destructive/30 rounded-md">
+                {error && error.includes('modelos') ? error : 'No hay modelos disponibles'}
               </div>
             )}
           </div>
@@ -237,6 +307,7 @@ export default function ImageUploader() {
             checked={recortarCara}
             onChange={(e) => setRecortarCara(e.target.checked)}
             className="rounded"
+            disabled={apiConnected === false}
           />
           <label htmlFor="recortar-cara" className="text-xs text-muted-foreground cursor-pointer">
             Recortar cara automáticamente
@@ -274,17 +345,46 @@ export default function ImageUploader() {
         </div>
       )}
 
+      {/* Error de conectividad con modelos */}
+      {method === 'xception' && !loadingModels && availableModels.length === 0 && error && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <svg className="w-5 h-5 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div>
+              <h4 className="font-semibold text-yellow-800">Problema de conectividad</h4>
+              <p className="text-sm text-yellow-700">
+                No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000
+              </p>
+            </div>
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-3" 
+            onClick={loadAvailableModels}
+            disabled={apiConnected === false}
+          >
+            Reintentar
+          </Button>
+        </div>
+      )}
+
+      {/* Estado inicial: Subir imagen */}
       {state === 'idle' && (
         <div
           className={`border-2 border-dashed rounded-xl p-12 text-center transition-all duration-200 ${
             dragActive 
               ? 'border-primary bg-primary/5' 
-              : 'border-border hover:border-primary/50 hover:bg-accent/50'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
+              : apiConnected === false 
+                ? 'border-muted bg-muted/20' 
+                : 'border-border hover:border-primary/50 hover:bg-accent/50'
+          } ${apiConnected === false ? 'opacity-50' : ''}`}
+          onDragEnter={apiConnected !== false ? handleDrag : undefined}
+          onDragLeave={apiConnected !== false ? handleDrag : undefined}
+          onDragOver={apiConnected !== false ? handleDrag : undefined}
+          onDrop={apiConnected !== false ? handleDrop : undefined}
         >
           <div className="space-y-4">
             <div className="w-16 h-16 mx-auto bg-primary/10 rounded-full flex items-center justify-center">
@@ -295,10 +395,10 @@ export default function ImageUploader() {
             
             <div>
               <h3 className="font-semibold mb-2">
-                Arrastra tu imagen aquí
+                {apiConnected === false ? 'API no disponible' : 'Arrastra tu imagen aquí'}
               </h3>
               <p className="text-muted-foreground text-sm mb-4">
-                O haz clic para seleccionar una imagen
+                {apiConnected === false ? 'Conecta tu API primero' : 'O haz clic para seleccionar una imagen'}
               </p>
               <p className="text-xs text-muted-foreground">
                 Formatos: PNG, JPG, JPEG (máx. 10MB)
@@ -308,6 +408,7 @@ export default function ImageUploader() {
             <Button 
               onClick={() => fileInputRef.current?.click()}
               className="mt-4"
+              disabled={apiConnected === false}
             >
               Seleccionar Imagen
             </Button>
@@ -319,10 +420,12 @@ export default function ImageUploader() {
             accept=".png,.jpg,.jpeg"
             onChange={handleFileInput}
             className="hidden"
+            disabled={apiConnected === false}
           />
         </div>
       )}
 
+      {/* Estado: Imagen subida */}
       {(state === 'uploaded' || state === 'error') && imagePreview && (
         <div className="space-y-6">
           <div className="text-center">
@@ -346,7 +449,8 @@ export default function ImageUploader() {
               className="px-8"
               disabled={
                 state === 'processing' || 
-                (method === 'xception' && (!selectedModel || loadingModels))
+                apiConnected === false ||
+                (method === 'xception' && (!selectedModel || loadingModels || availableModels.length === 0))
               }
             >
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

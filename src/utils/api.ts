@@ -2,11 +2,11 @@
 
 // 🎯 Configuración de tu API real
 const API_CONFIG = {
-  BASE_URL: 'http://localhost:8000', // Cambiar por la URL real de tu API
+  BASE_URL: 'http://localhost:8000',
   ENDPOINTS: {
     HUGGINGFACE: '/huggingface',
-    XCEPTION_DETECT: '/xception/detect',
-    XCEPTION_WEIGHTS: '/xception/weights'
+    XCEPTION_WEIGHTS: '/xception/weights',
+    XCEPTION_DETECT: '/xception/detect'
   }
 };
 
@@ -29,24 +29,37 @@ export const analyzeWithHuggingface = async (
   file: File, 
   recortarCara: boolean = false
 ): Promise<APIAnalysisResult> => {
+  const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HUGGINGFACE}`;
+  console.log('🚀 Intentando conectar a:', url);
+  
   try {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('recortar_cara', recortarCara.toString());
-    formData.append('device', 'cpu'); // o 'cuda' si tienes GPU
+    formData.append('device', 'cpu');
 
-    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HUGGINGFACE}`, {
+    console.log('📤 Enviando datos...', {
+      fileName: file.name,
+      fileSize: file.size,
+      recortarCara
+    });
+
+    const response = await fetch(url, {
       method: 'POST',
       body: formData,
     });
 
+    console.log('📨 Respuesta recibida:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
+      const errorText = await response.text();
+      console.error('❌ Error del servidor:', errorText);
+      throw new Error(`Error HTTP ${response.status}: ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('✅ Resultado:', result);
     
-    // Procesar respuesta exacta de tu API
     return {
       fake: result.result.fake.toString(),
       real: result.result.real.toString(),
@@ -54,8 +67,14 @@ export const analyzeWithHuggingface = async (
     };
 
   } catch (error) {
-    console.error('Error con Huggingface API:', error);
-    throw new Error('Error al analizar con Huggingface. Verifica que la API esté funcionando.');
+    console.error('💥 Error completo:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+    }
+    if (error instanceof Error) {
+      throw new Error(`Error al analizar con Huggingface: ${error.message}`);
+    }
+    throw new Error('Error desconocido al analizar con Huggingface.');
   }
 };
 
@@ -65,25 +84,39 @@ export const analyzeWithXception = async (
   modelName: string,
   recortarCara: boolean = false
 ): Promise<APIAnalysisResult> => {
+  const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_DETECT}`;
+  console.log('🚀 Intentando conectar a:', url);
+  
   try {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('model_name', modelName);
     formData.append('recortar_cara', recortarCara.toString());
-    formData.append('device', 'cpu'); // o 'cuda' si tienes GPU
+    formData.append('device', 'cpu');
 
-    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_DETECT}`, {
+    console.log('📤 Enviando datos...', {
+      fileName: file.name,
+      fileSize: file.size,
+      modelName,
+      recortarCara
+    });
+
+    const response = await fetch(url, {
       method: 'POST',
       body: formData,
     });
 
+    console.log('📨 Respuesta recibida:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
+      const errorText = await response.text();
+      console.error('❌ Error del servidor:', errorText);
+      throw new Error(`Error HTTP ${response.status}: ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('✅ Resultado:', result);
     
-    // Procesar respuesta exacta de tu API
     return {
       fake: result.result.fake.toString(),
       real: result.result.real.toString(),
@@ -91,28 +124,49 @@ export const analyzeWithXception = async (
     };
 
   } catch (error) {
-    console.error('Error con Xception API:', error);
-    throw new Error('Error al analizar con Xception. Verifica que la API esté funcionando.');
+    console.error('💥 Error completo:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+    }
+    if (error instanceof Error) {
+      throw new Error(`Error al analizar con Xception: ${error.message}`);
+    }
+    throw new Error('Error desconocido al analizar con Xception.');
   }
 };
 
 // 🔄 FUNCIÓN 3: Obtener modelos disponibles
 export const getAvailableModels = async (): Promise<AvailableModel[]> => {
+  const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_WEIGHTS}`;
+  console.log('🚀 Intentando obtener modelos de:', url);
+  
   try {
-    const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_WEIGHTS}`, {
+    const response = await fetch(url, {
       method: 'GET',
     });
 
+    console.log('📨 Respuesta recibida:', response.status, response.statusText);
+
     if (!response.ok) {
-      throw new Error(`Error HTTP: ${response.status}`);
+      const errorText = await response.text();
+      console.error('❌ Error del servidor:', errorText);
+      throw new Error(`Error HTTP ${response.status}: ${errorText}`);
     }
 
     const result = await response.json();
+    console.log('✅ Modelos obtenidos:', result);
+    
     return result.available_models || [];
 
   } catch (error) {
-    console.error('Error obteniendo modelos:', error);
-    throw new Error('Error al obtener modelos disponibles.');
+    console.error('💥 Error completo:', error);
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+    }
+    if (error instanceof Error) {
+      throw new Error(`Error al obtener modelos: ${error.message}`);
+    }
+    throw new Error('Error desconocido al obtener modelos disponibles.');
   }
 };
 
@@ -140,6 +194,14 @@ export const analyzeImage = async (
 
   const { modelName, recortarCara = false } = options;
 
+  console.log('🎯 Iniciando análisis:', {
+    method,
+    fileName: file.name,
+    fileSize: file.size,
+    modelName,
+    recortarCara
+  });
+
   try {
     switch (method) {
       case 'huggingface':
@@ -155,7 +217,7 @@ export const analyzeImage = async (
         throw new Error(`Método "${method}" no soportado`);
     }
   } catch (error) {
-    console.error(`Error con método ${method}:`, error);
+    console.error(`💥 Error con método ${method}:`, error);
     throw error;
   }
 };
@@ -185,12 +247,14 @@ export const getAPIStatus = () => {
 // 🧪 Función para probar conectividad
 export const testAPIConnection = async (): Promise<boolean> => {
   try {
+    console.log('🧪 Probando conectividad con la API...');
     const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_WEIGHTS}`, {
       method: 'GET',
     });
+    console.log('✅ Conectividad:', response.ok);
     return response.ok;
   } catch (error) {
-    console.error('Error de conectividad:', error);
+    console.error('❌ Error de conectividad:', error);
     return false;
   }
 };
