@@ -2,15 +2,47 @@ import React from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Badge } from './ui/badge';
-import { APIAnalysisResult } from '../utils/api';
+import { APIAnalysisResult, EnsembleAnalysisResult } from '../utils/api';
 
 interface ResultsDisplayProps {
-  result: APIAnalysisResult;
+  result: APIAnalysisResult | EnsembleAnalysisResult;
   onReset: () => void;
 }
 
+// Función helper para determinar si es un resultado de ensemble
+const isEnsembleResult = (result: APIAnalysisResult | EnsembleAnalysisResult): result is EnsembleAnalysisResult => {
+  return 'results' in result && 'final_decision_majority' in result && 'final_decision_average' in result;
+};
+
+// Función helper para obtener el color según la predicción
+const getPredictionColor = (prediction: string) => {
+  return prediction.toLowerCase() === 'real' 
+    ? 'bg-green-500' 
+    : 'bg-red-500';
+};
+
+// Función helper para formatear porcentajes
+const formatPercentage = (value: number | string) => {
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  return (num * 100).toFixed(1) + '%';
+};
+
+// Función helper para obtener el icono según la predicción
+const getPredictionIcon = (prediction: string) => {
+  return prediction.toLowerCase() === 'real' ? '✅' : '❌';
+};
+
 export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps) {
-  const { fake, real, prediccion } = result;
+  // Si es resultado de ensemble, usamos la decisión final
+  const mainResult = isEnsembleResult(result) 
+    ? {
+        fake: (result.final_decision_average.prediction === 'fake' ? result.final_decision_average.confidence : 1 - result.final_decision_average.confidence).toString(),
+        real: (result.final_decision_average.prediction === 'real' ? result.final_decision_average.confidence : 1 - result.final_decision_average.confidence).toString(),
+        prediccion: result.final_decision_majority.prediction
+      }
+    : result;
+
+  const { fake, real, prediccion } = mainResult;
 
   // Convertir los valores string a números para los cálculos
   const fakePercentage = parseFloat(fake) || 0;
@@ -21,11 +53,23 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
               prediccion?.toLowerCase().includes('artificial') || 
               fakePercentage > realPercentage;
 
-  // Calcular confianza (el mayor porcentaje)
+  // Calcular confianza (el mayor porcentage)
   const confidence = Math.max(fakePercentage, realPercentage);
 
   // Crear descripción basada en la predicción de la API
   const getDescription = () => {
+    if (isEnsembleResult(result)) {
+      const modelsCount = result.results.length;
+      const realVotes = result.results.filter(r => r.prediction.toLowerCase() === 'real').length;
+      const fakeVotes = result.results.filter(r => r.prediction.toLowerCase() === 'fake').length;
+      
+      if (isAI) {
+        return `Análisis de ${modelsCount} modelos: ${fakeVotes} detectaron contenido artificial vs ${realVotes} contenido real. Confianza promedio: ${(result.final_decision_average.confidence * 100).toFixed(1)}%`;
+      } else {
+        return `Análisis de ${modelsCount} modelos: ${realVotes} detectaron contenido real vs ${fakeVotes} contenido artificial. Confianza promedio: ${(result.final_decision_average.confidence * 100).toFixed(1)}%`;
+      }
+    }
+    
     if (prediccion) {
       return prediccion;
     }
@@ -37,7 +81,7 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
     }
   };
 
-  return (
+  const renderSingleResult = () => (
     <Card className="p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="text-center space-y-6">
         {/* Result Icon */}
@@ -61,6 +105,7 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
             variant={isAI ? "destructive" : "default"} 
             className="text-sm px-4 py-1"
           >
+            {isEnsembleResult(result) && "Análisis Ensemble: "}
             {isAI ? "Imagen Generada por IA" : "Imagen Real"}
           </Badge>
           
@@ -118,7 +163,9 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
 
         {/* Technical Details */}
         <div className="bg-muted/30 rounded-lg p-4 text-left space-y-2">
-          <h4 className="font-semibold text-sm text-center mb-3">Resultados del Análisis</h4>
+          <h4 className="font-semibold text-sm text-center mb-3">
+            {isEnsembleResult(result) ? "Resultados del Análisis Ensemble" : "Resultados del Análisis"}
+          </h4>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Predicción:</span>
@@ -132,6 +179,22 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
               <span className="text-muted-foreground">Real Score:</span>
               <span className="font-medium">{real}%</span>
             </div>
+            {isEnsembleResult(result) && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Modelos:</span>
+                  <span className="font-medium">{result.results.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Confianza mayoría:</span>
+                  <span className="font-medium">{(result.final_decision_majority.confidence * 100).toFixed(1)}%</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Confianza promedio:</span>
+                  <span className="font-medium">{(result.final_decision_average.confidence * 100).toFixed(1)}%</span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between">
               <span className="text-muted-foreground">Estado:</span>
               <span className={`font-medium ${isAI ? 'text-destructive' : 'text-green-600'}`}>
@@ -140,6 +203,36 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
             </div>
           </div>
         </div>
+
+        {/* Ensemble Details - Expandible */}
+        {isEnsembleResult(result) && (
+          <details className="bg-muted/20 rounded-lg p-4 text-left">
+            <summary className="font-semibold text-sm cursor-pointer text-center mb-3">
+              Ver resultados individuales por modelo
+            </summary>
+            <div className="space-y-3 mt-3">
+              {result.results.map((modelResult, index) => (
+                <div key={index} className="border-l-2 border-primary/20 pl-3 py-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-medium truncate max-w-[200px]" title={modelResult.model_name}>
+                      {modelResult.model_name.includes('huggingface') ? '🤗' : '🧠'} {modelResult.model_name}
+                    </span>
+                    <Badge 
+                      variant={modelResult.prediction.toLowerCase() === 'fake' ? "destructive" : "default"}
+                      className="text-xs"
+                    >
+                      {modelResult.prediction}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between text-xs mt-1 text-muted-foreground">
+                    <span>Real: {(modelResult.real * 100).toFixed(1)}%</span>
+                    <span>Fake: {(modelResult.fake * 100).toFixed(1)}%</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
 
         {/* Action Buttons */}
         <div className="flex gap-3 justify-center pt-4">
@@ -160,4 +253,6 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
       </div>
     </Card>
   );
+
+  return renderSingleResult();
 }

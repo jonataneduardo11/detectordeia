@@ -4,17 +4,25 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import ProcessingSpinner from './ProcessingSpinner';
 import ResultsDisplay from './ResultsDisplay';
-import { analyzeImage, getAvailableModels, testAPIConnection, APIAnalysisResult, AvailableModel } from '../utils/api';
+import { 
+  analyzeImage, 
+  cutFace,
+  getAvailableModels, 
+  testAPIConnection, 
+  APIAnalysisResult, 
+  EnsembleAnalysisResult,
+  AvailableModel 
+} from '../utils/api';
 
 type UploadState = 'idle' | 'uploaded' | 'processing' | 'complete' | 'error';
-type AnalysisMethod = 'huggingface' | 'xception';
+type AnalysisMethod = 'huggingface' | 'xception' | 'ensemble';
 
 export default function ImageUploader() {
   const [state, setState] = useState<UploadState>('idle');
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [dragActive, setDragActive] = useState(false);
-  const [result, setResult] = useState<APIAnalysisResult | null>(null);
+  const [result, setResult] = useState<APIAnalysisResult | EnsembleAnalysisResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [method, setMethod] = useState<AnalysisMethod>('huggingface');
   const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
@@ -22,6 +30,8 @@ export default function ImageUploader() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [recortarCara, setRecortarCara] = useState(false);
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [processingFace, setProcessingFace] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Verificar conectividad con la API al montar el componente
@@ -107,6 +117,7 @@ export default function ImageUploader() {
     }
 
     setSelectedImage(file);
+    setCroppedImage(null); // Limpiar imagen recortada previa
     const reader = new FileReader();
     reader.onload = () => {
       setImagePreview(reader.result as string);
@@ -119,6 +130,31 @@ export default function ImageUploader() {
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       handleFileSelect(e.target.files[0]);
+    }
+  };
+
+  // Nueva función para recortar cara
+  const handleCutFace = async () => {
+    if (!selectedImage) return;
+
+    setProcessingFace(true);
+    setError(null);
+    
+    try {
+      console.log('🎯 Recortando cara de la imagen...');
+      const croppedBlob = await cutFace(selectedImage);
+      
+      // Convertir blob a URL para mostrar la preview
+      const croppedUrl = URL.createObjectURL(croppedBlob);
+      setCroppedImage(croppedUrl);
+      
+      console.log('✅ Cara recortada exitosamente');
+    } catch (error) {
+      console.error('❌ Error recortando cara:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido al recortar la cara';
+      setError(errorMessage);
+    } finally {
+      setProcessingFace(false);
     }
   };
 
@@ -150,6 +186,7 @@ export default function ImageUploader() {
     setState('idle');
     setSelectedImage(null);
     setImagePreview(null);
+    setCroppedImage(null);
     setResult(null);
     setError(null);
     if (fileInputRef.current) {
@@ -172,6 +209,13 @@ export default function ImageUploader() {
           description: 'Modelos Xception personalizados para detección de deepfakes',
           icon: '🧠',
           color: 'bg-purple-500'
+        };
+      case 'ensemble':
+        return {
+          name: 'Ensemble',
+          description: 'Análisis con TODOS los modelos disponibles (HuggingFace + Xception)',
+          icon: '🎯',
+          color: 'bg-green-600'
         };
     }
   };
@@ -247,8 +291,8 @@ export default function ImageUploader() {
       {/* Selector de método de análisis */}
       <div className="mb-6">
         <h4 className="text-sm font-medium mb-3 text-center">Método de análisis:</h4>
-        <div className="flex gap-2 justify-center">
-          {(['huggingface', 'xception'] as AnalysisMethod[]).map((methodType) => {
+        <div className="flex gap-2 justify-center flex-wrap">
+          {(['huggingface', 'xception', 'ensemble'] as AnalysisMethod[]).map((methodType) => {
             const info = getMethodInfo(methodType);
             return (
               <Button
@@ -299,20 +343,22 @@ export default function ImageUploader() {
           </div>
         )}
 
-        {/* Opción de recortar cara */}
-        <div className="mt-4 flex items-center justify-center space-x-2">
-          <input 
-            type="checkbox" 
-            id="recortar-cara"
-            checked={recortarCara}
-            onChange={(e) => setRecortarCara(e.target.checked)}
-            className="rounded"
-            disabled={apiConnected === false}
-          />
-          <label htmlFor="recortar-cara" className="text-xs text-muted-foreground cursor-pointer">
-            Recortar cara automáticamente
-          </label>
-        </div>
+        {/* Opción de recortar cara - Solo para huggingface y ensemble */}
+        {(method === 'huggingface' || method === 'ensemble') && (
+          <div className="mt-4 flex items-center justify-center space-x-2">
+            <input 
+              type="checkbox" 
+              id="recortar-cara"
+              checked={recortarCara}
+              onChange={(e) => setRecortarCara(e.target.checked)}
+              className="rounded"
+              disabled={apiConnected === false}
+            />
+            <label htmlFor="recortar-cara" className="text-xs text-muted-foreground cursor-pointer">
+              Recortar cara automáticamente
+            </label>
+          </div>
+        )}
         
         <p className="text-xs text-center text-muted-foreground mt-2">
           {getMethodInfo(method).description}
@@ -430,18 +476,66 @@ export default function ImageUploader() {
         <div className="space-y-6">
           <div className="text-center">
             <h3 className="font-semibold mb-4">Imagen seleccionada</h3>
-            <div className="relative max-w-md mx-auto">
-              <img 
-                src={imagePreview} 
-                alt="Preview" 
-                className="w-full h-auto rounded-lg shadow-lg"
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+              {/* Imagen original */}
+              <div className="relative">
+                <h4 className="text-sm font-medium mb-2 text-muted-foreground">Imagen original</h4>
+                <img 
+                  src={imagePreview} 
+                  alt="Original" 
+                  className="w-full h-auto rounded-lg shadow-lg"
+                />
+              </div>
+              
+              {/* Imagen recortada (si existe) */}
+              {croppedImage && (
+                <div className="relative">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Cara recortada</h4>
+                  <img 
+                    src={croppedImage} 
+                    alt="Cara recortada" 
+                    className="w-full h-auto rounded-lg shadow-lg"
+                  />
+                </div>
+              )}
             </div>
+            
             <p className="text-sm text-muted-foreground mt-2">
               {selectedImage?.name} ({selectedImage && formatFileSize(selectedImage.size)})
             </p>
           </div>
 
+          {/* Herramientas adicionales */}
+          <div className="flex gap-3 justify-center flex-wrap">
+            {/* Botón para recortar cara */}
+            <Button 
+              onClick={handleCutFace}
+              variant="outline"
+              size="sm"
+              disabled={processingFace || apiConnected === false}
+              className="text-xs"
+            >
+              {processingFace ? (
+                <>
+                  <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                  Recortando...
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  ✂️ Recortar Cara
+                </>
+              )}
+            </Button>
+            
+            <Button variant="outline" onClick={resetUploader} size="sm" className="text-xs">
+              🔄 Cambiar Imagen
+            </Button>
+          </div>
+
+          {/* Botón principal de análisis */}
           <div className="flex gap-3 justify-center">
             <Button 
               onClick={analyzeImageAPI} 
@@ -449,6 +543,7 @@ export default function ImageUploader() {
               className="px-8"
               disabled={
                 state === 'processing' || 
+                processingFace ||
                 apiConnected === false ||
                 (method === 'xception' && (!selectedModel || loadingModels || availableModels.length === 0))
               }
@@ -456,12 +551,26 @@ export default function ImageUploader() {
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
               </svg>
-              Analizar con {getMethodInfo(method).name}
-            </Button>
-            <Button variant="outline" onClick={resetUploader}>
-              Cambiar Imagen
+              {method === 'ensemble' ? '🎯 Analizar con TODOS los modelos' : `Analizar con ${getMethodInfo(method).name}`}
             </Button>
           </div>
+
+          {/* Información sobre el método seleccionado */}
+          {method === 'ensemble' && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <div>
+                  <h4 className="font-semibold text-green-800 text-sm">Modo Ensemble Activado</h4>
+                  <p className="text-xs text-green-700">
+                    Se utilizarán todos los modelos disponibles (HuggingFace + todos los Xception) para obtener un resultado más preciso
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </Card>
