@@ -1,3 +1,5 @@
+// ImageUploader.tsx
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -28,7 +30,6 @@ export default function ImageUploader() {
   const [availableModels, setAvailableModels] = useState<AvailableModel[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
   const [loadingModels, setLoadingModels] = useState(false);
-  const [recortarCara, setRecortarCara] = useState(false);
   const [apiConnected, setApiConnected] = useState<boolean | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [processingFace, setProcessingFace] = useState(false);
@@ -133,7 +134,7 @@ export default function ImageUploader() {
     }
   };
 
-  // Nueva función para recortar cara
+  // Función para recortar cara
   const handleCutFace = async () => {
     if (!selectedImage) return;
 
@@ -146,7 +147,7 @@ export default function ImageUploader() {
       
       // Convertir blob a URL para mostrar la preview
       const croppedUrl = URL.createObjectURL(croppedBlob);
-      setCroppedImage(croppedUrl);
+      setCroppedImage(croppedUrl); 
       
       console.log('✅ Cara recortada exitosamente');
     } catch (error) {
@@ -168,7 +169,6 @@ export default function ImageUploader() {
       console.log('🎯 Iniciando análisis de imagen...');
       const apiResult = await analyzeImage(selectedImage, method, {
         modelName: method === 'xception' ? selectedModel : undefined,
-        recortarCara: recortarCara
       });
       
       console.log('✅ Análisis completado:', apiResult);
@@ -186,7 +186,7 @@ export default function ImageUploader() {
     setState('idle');
     setSelectedImage(null);
     setImagePreview(null);
-    setCroppedImage(null);
+    setCroppedImage(null); 
     setResult(null);
     setError(null);
     if (fileInputRef.current) {
@@ -246,7 +246,7 @@ export default function ImageUploader() {
 
   // Estado de resultados completos
   if (state === 'complete' && result) {
-    return <ResultsDisplay result={result} onReset={resetUploader} />;
+    return <ResultsDisplay result={result} onReset={resetUploader} imagePreview={imagePreview} croppedImage={croppedImage} />;
   }
 
   return (
@@ -277,16 +277,8 @@ export default function ImageUploader() {
         </div>
       )}
 
-      {apiConnected === true && (
-        <div className="mb-6 p-3 bg-green-50 border border-green-200 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            <p className="text-sm text-green-700">API conectada correctamente</p>
-          </div>
-        </div>
-      )}
+      {/* El bloque que mostraba "API conectada correctamente" ha sido eliminado de aquí.
+      */}
 
       {/* Selector de método de análisis */}
       <div className="mb-6">
@@ -340,23 +332,6 @@ export default function ImageUploader() {
                 {error && error.includes('modelos') ? error : 'No hay modelos disponibles'}
               </div>
             )}
-          </div>
-        )}
-
-        {/* Opción de recortar cara - Solo para huggingface y ensemble */}
-        {(method === 'huggingface' || method === 'ensemble') && (
-          <div className="mt-4 flex items-center justify-center space-x-2">
-            <input 
-              type="checkbox" 
-              id="recortar-cara"
-              checked={recortarCara}
-              onChange={(e) => setRecortarCara(e.target.checked)}
-              className="rounded"
-              disabled={apiConnected === false}
-            />
-            <label htmlFor="recortar-cara" className="text-xs text-muted-foreground cursor-pointer">
-              Recortar cara automáticamente
-            </label>
           </div>
         )}
         

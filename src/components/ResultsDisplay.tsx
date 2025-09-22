@@ -1,3 +1,5 @@
+// ResultsDisplay.tsx
+
 import React from 'react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
@@ -7,6 +9,8 @@ import { APIAnalysisResult, EnsembleAnalysisResult } from '../utils/api';
 interface ResultsDisplayProps {
   result: APIAnalysisResult | EnsembleAnalysisResult;
   onReset: () => void;
+  imagePreview: string | null; // <-- Imagen original
+  croppedImage: string | null; // <-- AÑADIDO: Imagen de la cara recortada
 }
 
 // Función helper para determinar si es un resultado de ensemble
@@ -14,25 +18,22 @@ const isEnsembleResult = (result: APIAnalysisResult | EnsembleAnalysisResult): r
   return 'results' in result && 'final_decision_majority' in result && 'final_decision_average' in result;
 };
 
-// Función helper para obtener el color según la predicción
+// ... (El resto de funciones helper no cambian)
 const getPredictionColor = (prediction: string) => {
   return prediction.toLowerCase() === 'real' 
     ? 'bg-green-500' 
     : 'bg-red-500';
 };
-
-// Función helper para formatear porcentajes
 const formatPercentage = (value: number | string) => {
   const num = typeof value === 'string' ? parseFloat(value) : value;
   return (num * 100).toFixed(1) + '%';
 };
-
-// Función helper para obtener el icono según la predicción
 const getPredictionIcon = (prediction: string) => {
   return prediction.toLowerCase() === 'real' ? '✅' : '❌';
 };
 
-export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps) {
+
+export default function ResultsDisplay({ result, onReset, imagePreview, croppedImage }: ResultsDisplayProps) {
   // Si es resultado de ensemble, usamos la decisión final
   const mainResult = isEnsembleResult(result) 
     ? {
@@ -50,8 +51,8 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
   
   // Determinar si es IA basado en la predicción o en los porcentajes
   const isAI = prediccion?.toLowerCase().includes('fake') || 
-              prediccion?.toLowerCase().includes('artificial') || 
-              fakePercentage > realPercentage;
+               prediccion?.toLowerCase().includes('artificial') || 
+               fakePercentage > realPercentage;
 
   // Calcular confianza (el mayor porcentage)
   const confidence = Math.max(fakePercentage, realPercentage);
@@ -83,6 +84,37 @@ export default function ResultsDisplay({ result, onReset }: ResultsDisplayProps)
 
   const renderSingleResult = () => (
     <Card className="p-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+      {/* ===== SECCIÓN PARA MOSTRAR IMÁGENES ORIGINAL Y RECORTADA ===== */}
+      {(imagePreview || croppedImage) && (
+        <div className="mb-8 border-b pb-8">
+          <h3 className="text-center text-lg font-semibold mb-4 text-foreground">Imágenes Analizadas</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
+            {imagePreview && (
+              <div className="relative">
+                <h4 className="text-sm font-medium mb-2 text-muted-foreground">Imagen original</h4>
+                <img
+                  src={imagePreview}
+                  alt="Original"
+                  className="w-full h-auto rounded-lg shadow-md"
+                />
+              </div>
+            )}
+            {croppedImage && (
+              <div className="relative">
+                <h4 className="text-sm font-medium mb-2 text-muted-foreground">Cara recortada</h4>
+                <img
+                  src={croppedImage}
+                  alt="Cara recortada"
+                  className="w-full h-auto rounded-lg shadow-md"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      {/* ===== FIN DE LA SECCIÓN DE IMÁGENES ===== */}
+
       <div className="text-center space-y-6">
         {/* Result Icon */}
         <div className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center ${

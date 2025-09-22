@@ -47,10 +47,9 @@ export interface AvailableModel {
   model_type: string;
 }
 
-// 🔄 FUNCIÓN 1: Análisis con Huggingface (existente)
+// 🔄 FUNCIÓN 1: Análisis con Huggingface (actualizada)
 export const analyzeWithHuggingface = async (
-  file: File, 
-  recortarCara: boolean = false
+  file: File
 ): Promise<APIAnalysisResult> => {
   const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.HUGGINGFACE}`;
   console.log('🚀 Intentando conectar a:', url);
@@ -58,13 +57,11 @@ export const analyzeWithHuggingface = async (
   try {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('recortar_cara', recortarCara.toString());
     formData.append('device', 'cpu');
 
     console.log('📤 Enviando datos...', {
       fileName: file.name,
-      fileSize: file.size,
-      recortarCara
+      fileSize: file.size
     });
 
     const response = await fetch(url, {
@@ -102,11 +99,10 @@ export const analyzeWithHuggingface = async (
   }
 };
 
-// 🔄 FUNCIÓN 2: Análisis con Xception (existente)
+// 🔄 FUNCIÓN 2: Análisis con Xception (actualizada)
 export const analyzeWithXception = async (
   file: File,
-  modelName: string,
-  recortarCara: boolean = false
+  modelName: string
 ): Promise<APIAnalysisResult> => {
   const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.XCEPTION_DETECT}`;
   console.log('🚀 Intentando conectar a:', url);
@@ -115,14 +111,12 @@ export const analyzeWithXception = async (
     const formData = new FormData();
     formData.append('file', file);
     formData.append('model_name', modelName);
-    formData.append('recortar_cara', recortarCara.toString());
     formData.append('device', 'cpu');
 
     console.log('📤 Enviando datos...', {
       fileName: file.name,
       fileSize: file.size,
-      modelName,
-      recortarCara
+      modelName
     });
 
     const response = await fetch(url, {
@@ -240,10 +234,9 @@ export const cutFace = async (file: File): Promise<Blob> => {
   }
 };
 
-// 🆕 FUNCIÓN 5: Análisis con Ensemble (todos los modelos)
+// 🆕 FUNCIÓN 5: Análisis con Ensemble (actualizada)
 export const analyzeWithEnsemble = async (
-  file: File, 
-  recortarCara: boolean = false
+  file: File
 ): Promise<EnsembleAnalysisResult> => {
   const url = `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.ENSEMBLE_DETECT}`;
   console.log('🚀 Intentando conectar a:', url);
@@ -251,13 +244,11 @@ export const analyzeWithEnsemble = async (
   try {
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('recortar_cara', recortarCara.toString());
     formData.append('device', 'cpu');
 
     console.log('📤 Enviando datos para análisis ensemble...', {
       fileName: file.name,
-      fileSize: file.size,
-      recortarCara
+      fileSize: file.size
     });
 
     const response = await fetch(url, {
@@ -290,13 +281,12 @@ export const analyzeWithEnsemble = async (
   }
 };
 
-// 🚀 FUNCIÓN PRINCIPAL - Actualizada con nuevos métodos
+// 🚀 FUNCIÓN PRINCIPAL - Actualizada
 export const analyzeImage = async (
   file: File,
   method: 'huggingface' | 'xception' | 'ensemble' = 'huggingface',
   options: {
     modelName?: string;
-    recortarCara?: boolean;
   } = {}
 ): Promise<APIAnalysisResult | EnsembleAnalysisResult> => {
   
@@ -312,29 +302,28 @@ export const analyzeImage = async (
     throw new Error('Formato no válido. Solo se permiten PNG, JPG, JPEG.');
   }
 
-  const { modelName, recortarCara = false } = options;
+  const { modelName } = options;
 
   console.log('🎯 Iniciando análisis:', {
     method,
     fileName: file.name,
     fileSize: file.size,
-    modelName,
-    recortarCara
+    modelName
   });
 
   try {
     switch (method) {
       case 'huggingface':
-        return await analyzeWithHuggingface(file, recortarCara);
+        return await analyzeWithHuggingface(file);
       
       case 'xception':
         if (!modelName) {
           throw new Error('Se requiere seleccionar un modelo para Xception.');
         }
-        return await analyzeWithXception(file, modelName, recortarCara);
+        return await analyzeWithXception(file, modelName);
       
       case 'ensemble':
-        return await analyzeWithEnsemble(file, recortarCara);
+        return await analyzeWithEnsemble(file);
       
       default:
         throw new Error(`Método "${method}" no soportado`);
