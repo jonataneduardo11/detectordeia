@@ -4,11 +4,11 @@
 const API_CONFIG = {
   BASE_URL: 'https://api.kmmh.com.mx',
   ENDPOINTS: {
-    HUGGINGFACE: '/huggingface',
-    XCEPTION_WEIGHTS: '/xception/weights',
-    XCEPTION_DETECT: '/xception/detect',
-    CUT_FACE: '/cut_face',
-    ENSEMBLE_DETECT: '/ensemble/detect'
+    HUGGINGFACE: 'api/huggingface',
+    XCEPTION_WEIGHTS: 'api/xception/weights',
+    XCEPTION_DETECT: 'api/xception/detect',
+    CUT_FACE: 'api/cut_face',
+    ENSEMBLE_DETECT: 'api/ensemble/detect'
   }
 };
 
