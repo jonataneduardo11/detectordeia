@@ -2,13 +2,13 @@
 
 // 🎯 Configuración de tu API real
 const API_CONFIG = {
-  BASE_URL: 'https://api.kmmh.com.mx',
+  BASE_URL: 'https://api.kmmh.com.mx/api/',
   ENDPOINTS: {
-    HUGGINGFACE: 'api/huggingface',
-    XCEPTION_WEIGHTS: 'api/xception/weights',
-    XCEPTION_DETECT: 'api/xception/detect',
-    CUT_FACE: 'api/cut_face',
-    ENSEMBLE_DETECT: 'api/ensemble/detect'
+    HUGGINGFACE: 'huggingface',
+    XCEPTION_WEIGHTS: 'xception/weights',
+    XCEPTION_DETECT: 'xception/detect',
+    CUT_FACE: 'cut_face',
+    ENSEMBLE_DETECT: 'ensemble/detect'
   }
 };
 
@@ -90,7 +90,7 @@ export const analyzeWithHuggingface = async (
   } catch (error) {
     console.error('💥 Error completo:', error);
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+      throw new Error('No se puede conectar con la API');
     }
     if (error instanceof Error) {
       throw new Error(`Error al analizar con Huggingface: ${error.message}`);
@@ -145,7 +145,7 @@ export const analyzeWithXception = async (
   } catch (error) {
     console.error('💥 Error completo:', error);
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+      throw new Error('No se puede conectar con la API');
     }
     if (error instanceof Error) {
       throw new Error(`Error al analizar con Xception: ${error.message}`);
@@ -180,7 +180,7 @@ export const getAvailableModels = async (): Promise<AvailableModel[]> => {
   } catch (error) {
     console.error('💥 Error completo:', error);
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+      throw new Error('No se puede conectar con la API');
     }
     if (error instanceof Error) {
       throw new Error(`Error al obtener modelos: ${error.message}`);
@@ -225,7 +225,7 @@ export const cutFace = async (file: File): Promise<Blob> => {
   } catch (error) {
     console.error('💥 Error completo:', error);
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+      throw new Error('No se puede conectar con la API');
     }
     if (error instanceof Error) {
       throw new Error(`Error al recortar cara: ${error.message}`);
@@ -272,7 +272,7 @@ export const analyzeWithEnsemble = async (
   } catch (error) {
     console.error('💥 Error completo:', error);
     if (error instanceof TypeError && error.message.includes('fetch')) {
-      throw new Error('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+      throw new Error('No se puede conectar con la API');
     }
     if (error instanceof Error) {
       throw new Error(`Error al analizar con Ensemble: ${error.message}`);

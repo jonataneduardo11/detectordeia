@@ -55,7 +55,7 @@ export default function ImageUploader() {
       const connected = await testAPIConnection();
       setApiConnected(connected);
       if (!connected) {
-        setError('No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000');
+        setError('No se puede conectar con la API');
       }
     } catch (error) {
       setApiConnected(false);
@@ -262,7 +262,7 @@ export default function ImageUploader() {
               <div>
                 <h4 className="font-semibold text-destructive">API no disponible</h4>
                 <p className="text-sm text-destructive/80">
-                  Verifica que tu API esté ejecutándose en <code>http://localhost:8000</code>
+                  Verifica que tu API esté ejecutándose
                 </p>
               </div>
             </div>
@@ -376,7 +376,7 @@ export default function ImageUploader() {
             <div>
               <h4 className="font-semibold text-yellow-800">Problema de conectividad</h4>
               <p className="text-sm text-yellow-700">
-                No se puede conectar con la API. Verifica que esté ejecutándose en http://localhost:8000
+                No se puede conectar con la API
               </p>
             </div>
           </div>
