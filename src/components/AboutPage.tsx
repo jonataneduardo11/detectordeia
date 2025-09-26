@@ -120,7 +120,7 @@ export default function AboutPage() {
               <span className="text-white font-semibold text-lg">DR</span>
             </div>
             <h3 className="font-semibold">Kevin Martin</h3>
-            <p className="text-sm text-muted-foreground mb-2"> Producer-Estudiante</p>
+            <p className="text-sm text-muted-foreground mb-2">Estudiante</p>
             <Badge variant="secondary" className="text-xs">PhD en Machine Learning</Badge>
           </div>
 
@@ -129,7 +129,7 @@ export default function AboutPage() {
               <span className="text-white font-semibold text-lg">AL</span>
             </div>
             <h3 className="font-semibold">Melquiades Morales</h3>
-            <p className="text-sm text-muted-foreground mb-2">Ingeniero Principal-Estudiante</p>
+            <p className="text-sm text-muted-foreground mb-2">Estudiante</p>
             <Badge variant="secondary" className="text-xs">Especialista en Computer Vision</Badge>
           </div>
 
@@ -138,8 +138,8 @@ export default function AboutPage() {
               <span className="text-white font-semibold text-lg">AL</span>
             </div>
             <h3 className="font-semibold">Carlos Zavala</h3>
-            <p className="text-sm text-muted-foreground mb-2">Ingeniero Principal-Estudiante</p>
-            <Badge variant="secondary" className="text-xs">Especialista en Computer Vision</Badge>
+            <p className="text-sm text-muted-foreground mb-2">Estudiante</p>
+            <Badge variant="secondary" className="text-xs">Experto en Deep Learning</Badge>
           </div>
 
            <div className="text-center">
@@ -147,7 +147,7 @@ export default function AboutPage() {
               <span className="text-white font-semibold text-lg">AL</span>
             </div>
             <h3 className="font-semibold">Eduardo Aguilar</h3>
-            <p className="text-sm text-muted-foreground mb-2">Ingeniero Principal-Estudiante</p>
+            <p className="text-sm text-muted-foreground mb-2">Estudiante</p>
             <Badge variant="secondary" className="text-xs">Especialista en Computer Vision</Badge>
           </div>
 
@@ -156,7 +156,7 @@ export default function AboutPage() {
               <span className="text-white font-semibold text-lg">JS</span>
             </div>
             <h3 className="font-semibold">Brayan Alegría</h3>
-            <p className="text-sm text-muted-foreground mb-2">Científico de Datos-Estudiante</p>
+            <p className="text-sm text-muted-foreground mb-2">Estudiante</p>
             <Badge variant="secondary" className="text-xs">Experto en Deep Learning</Badge>
           </div>
         </div>
