@@ -187,3 +187,54 @@
 html {
   font-size: var(--font-size);
 }
+
+/* --- ESTILOS PARA IMPRESIÓN --- */
+@media print {
+  /* Oculta todo por defecto al imprimir */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Muestra solo el área del reporte y su contenido */
+  .printable-area, .printable-area * {
+    visibility: visible;
+  }
+
+  /* Asegura que el reporte ocupe toda la página */
+  .printable-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: auto;
+    margin: 0;
+    padding: 1.5rem;
+    background: white !important; /* Fondo blanco para impresión */
+    color: black !important; /* Texto negro para impresión */
+  }
+  
+  /* Asegura que los hijos usen colores de impresión */
+  .printable-area * {
+      color: black !important;
+      background-color: transparent !important;
+  }
+
+  /* Oculta los botones dentro del reporte */
+  .print-hide {
+    display: none !important;
+  }
+  
+  /* Elimina estilos visuales innecesarios en la impresión */
+  .printable-area .p-8, .printable-area .p-4 {
+      box-shadow: none !important;
+      border: none !important;
+      padding: 0 !important;
+  }
+  
+  /* Ajusta imágenes para que no se desborden */
+  .printable-area img {
+      max-width: 100% !important;
+      box-shadow: none !important;
+      border: 1px solid #ccc; /* Agrega un borde sutil a las imágenes */
+  }
+}
